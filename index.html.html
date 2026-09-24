@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Cuentas Bares - Colaborativo</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- QRCode generation library -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: #0f172a;
+      color: #f8fafc;
+    }
+    .landing-bg {
+      background: linear-gradient(to bottom, rgba(15, 23, 42, 0.75), rgba(15, 23, 42, 0.98)),
+                  url('https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=1000&auto=format&fit=crop');
+      background-size: cover;
+      background-position: center;
+    }
+    .glass-card {
+      background: rgba(30, 41, 59, 0.7);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+  </style>
+</head>
+<body class="min-h-screen antialiased selection:bg-amber-500 selection:text-white">
+
+  <div id="app" class="max-w-md mx-auto min-h-screen flex flex-col relative pb-20">
+
+    <!-- PANTALLA DE INICIO / LANDING -->
+    <div id="landingView" class="flex-1 flex flex-col justify-between p-6 landing-bg">
+      <div class="pt-8 text-center space-y-3">
+        <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/30 mb-2 shadow-lg shadow-amber-500/10">
+          <i class="fa-solid fa-beer-mug-empty text-3xl"></i>
+        </div>
+        <h1 class="text-4xl font-extrabold tracking-tight text-white">Cuentas Bares</h1>
+        <p class="text-slate-300 text-sm max-w-xs mx-auto font-medium">Divide la cuenta en tiempo real desde el bar. Todos se suman y marcan lo suyo.</p>
+      </div>
+
+      <div class="glass-card p-6 rounded-3xl space-y-4 my-auto shadow-2xl">
+        <button onclick="createNewMesa()" class="w-full py-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-extrabold rounded-2xl shadow-xl shadow-amber-500/20 flex items-center justify-center gap-2 text-base transition-all active:scale-95">
+          <i class="fa-solid fa-plus text-lg"></i>
+          <span>Crear Nueva Mesa en Línea</span>
+        </button>
+
+        <div class="relative flex py-1 items-center">
+          <div class="flex-grow border-t border-slate-700"></div>
+          <span class="flex-shrink mx-3 text-slate-400 text-xs font-semibold">o unirse con código</span>
+          <div class="flex-grow border-t border-slate-700"></div>
+        </div>
+
+        <div class="flex gap-2">
+          <input type="text" id="joinMesaInput" placeholder="Código de Mesa (ej: X7K2P)" class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-3 text-sm text-center uppercase tracking-widest text-white focus:outline-none focus:border-amber-500">
+          <button onclick="joinMesaByCode()" class="bg-slate-800 hover:bg-slate-700 text-amber-400 px-4 rounded-xl font-bold border border-amber-500/30 text-sm transition-colors">
+            Unirme
+          </button>
+        </div>
+      </div>
+
+      <div class="text-center text-xs text-slate-400 font-medium">
+        <span>Sincronización en vivo • Formato CLP ($)</span>
+      </div>
+    </div>
+
+    <!-- VISTA PRINCIPAL (APP) -->
+    <div id="mainView" class="hidden flex-1 flex flex-col bg-slate-900">
+      
+      <!-- HEADER -->
+      <header class="p-4 bg-slate-900/90 backdrop-blur-md sticky top-0 z-30 border-b border-slate-800 flex items-center justify-between">
+        <button onclick="leaveMesa()" class="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 transition-colors" title="Salir de Mesa">
+          <i class="fa-solid fa-house text-lg"></i>
+        </button>
+        
+        <div class="text-center">
+          <div class="flex items-center justify-center gap-2">
+            <h2 class="font-bold text-base text-white">Mesa en Línea</h2>
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1 animate-pulse"></span>
+              EN VIVO
+            </span>
+          </div>
+          <p id="mesaCodeDisplay" class="text-[11px] font-mono text-amber-400 font-bold tracking-wider">Código: ---</p>
+        </div>
+
+        <button onclick="openShareModal()" class="p-2 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-xl hover:bg-amber-500/30 transition-colors" title="Compartir Mesa">
+          <i class="fa-solid fa-share-nodes text-lg"></i>
+        </button>
+      </header>
+
+      <main class="p-4 space-y-6 flex-1">
+        
+        <!-- BARRA COMPARTIR RÁPIDO -->
+        <section class="glass-card p-3 rounded-2xl flex items-center justify-between bg-amber-500/10 border-amber-500/20">
+          <div class="flex items-center gap-2">
+            <i class="fa-solid fa-users text-amber-400"></i>
+            <div>
+              <p class="text-xs font-bold text-white">Invitación en Vivo</p>
+              <p class="text-[10px] text-slate-300">Cualquiera con el link se suma a la cuenta</p>
+            </div>
+          </div>
+          <button onclick="copyMesaLink()" class="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs rounded-xl shadow-md transition-all">
+            <i class="fa-solid fa-copy mr-1"></i> Copiar Link
+          </button>
+        </section>
+
+        <!-- INTEGRANTES -->
+        <section class="glass-card p-4 rounded-2xl space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs font-bold text-amber-400 uppercase tracking-wider">Integrantes de la Mesa</h3>
+            <button onclick="addPerson()" class="text-xs text-amber-400 font-bold hover:underline flex items-center gap-1">
+              <i class="fa-solid fa-plus"></i> Agregar
+            </button>
+          </div>
+          <div id="peopleList" class="flex flex-wrap gap-2"></div>
+        </section>
+
+        <!-- ACCIONES BOLETA -->
+        <section class="grid grid-cols-2 gap-3">
+          <button onclick="simulateReceipt()" class="p-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-2xl flex items-center justify-center gap-2 text-xs font-bold text-slate-200 transition-all">
+            <i class="fa-solid fa-wand-magic-sparkles text-amber-400"></i>
+            <span>Cargar Demo</span>
+          </button>
+          <label class="p-3 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 rounded-2xl flex items-center justify-center gap-2 text-xs font-bold text-amber-400 cursor-pointer transition-all">
+            <i class="fa-solid fa-camera"></i>
+            <span>Escanear Boleta</span>
+            <input type="file" accept="image/*" class="hidden" onchange="handleImageUpload(event)">
+          </label>
+        </section>
+
+        <!-- AGREGAR ITEM MANUAL -->
+        <section class="glass-card p-4 rounded-2xl space-y-3">
+          <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Agregar Consumo Manual</h3>
+          <div class="flex gap-2">
+            <input type="text" id="itemName" placeholder="Ej: Pisco Sour" class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500">
+            <input type="number" id="itemPrice" placeholder="Monto ($)" class="w-28 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500">
+            <button onclick="addManualItem()" class="bg-amber-500 text-slate-950 px-4 rounded-xl font-bold hover:bg-amber-400 transition-colors">
+              <i class="fa-solid fa-plus"></i>
+            </button>
+          </div>
+        </section>
+
+        <!-- LISTA DE CONSUMOS -->
+        <section class="space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Detalle de Consumos</h3>
+            <span id="itemCountBadge" class="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full font-semibold">0 ítems</span>
+          </div>
+          <div id="itemsContainer" class="space-y-2"></div>
+        </section>
+
+        <!-- PROPINA -->
+        <section class="glass-card p-4 rounded-2xl flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <i class="fa-solid fa-percent text-amber-400"></i>
+            <div>
+              <p class="text-sm font-bold text-white">Incluir Propina (10%)</p>
+              <p class="text-xs text-slate-400">Sugerida en Chile</p>
+            </div>
+          </div>
+          <input type="checkbox" id="tipToggle" checked onchange="toggleTipRemote()" class="w-5 h-5 accent-amber-500 rounded cursor-pointer">
+        </section>
+
+        <!-- DATOS BANCARIOS -->
+        <section class="glass-card p-4 rounded-2xl space-y-3">
+          <div class="flex justify-between items-center">
+            <h3 class="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-2">
+              <i class="fa-solid fa-building-columns"></i>
+              Datos de Transferencia
+            </h3>
+            <span class="text-[10px] text-slate-400">Sincronizado</span>
+          </div>
+
+          <div class="space-y-1.5">
+            <textarea id="rawBankText" placeholder="Pega aquí el texto copiado de tu app del banco..." rows="2" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 resize-none"></textarea>
+            <button onclick="parseRawBankText()" class="w-full py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-400 border border-amber-500/30 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all">
+              <i class="fa-solid fa-paste"></i>
+              <span>Autocompletar y Sincronizar</span>
+            </button>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2 text-xs pt-1">
+            <input type="text" id="bankName" placeholder="Tu Nombre" oninput="saveBankDataRemote()" class="bg-slate-900 border border-slate-700 rounded-xl p-2 text-white focus:outline-none focus:border-amber-500">
+            <input type="text" id="bankRut" placeholder="RUT" oninput="saveBankDataRemote()" class="bg-slate-900 border border-slate-700 rounded-xl p-2 text-white focus:outline-none focus:border-amber-500">
+            <input type="text" id="bankEntity" placeholder="Banco" oninput="saveBankDataRemote()" class="bg-slate-900 border border-slate-700 rounded-xl p-2 text-white focus:outline-none focus:border-amber-500">
+            <input type="text" id="bankType" placeholder="Tipo Cuenta" oninput="saveBankDataRemote()" class="bg-slate-900 border border-slate-700 rounded-xl p-2 text-white focus:outline-none focus:border-amber-500">
+            <input type="text" id="bankAccount" placeholder="Nº de Cuenta" oninput="saveBankDataRemote()" class="col-span-2 bg-slate-900 border border-slate-700 rounded-xl p-2 text-white focus:outline-none focus:border-amber-500">
+          </div>
+        </section>
+
+        <!-- RESUMEN FINAL -->
+        <section class="glass-card p-4 rounded-2xl space-y-3">
+          <h3 class="text-xs font-bold text-amber-400 uppercase tracking-wider">Resumen por Persona</h3>
+          <div id="summaryContainer" class="space-y-2 divide-y divide-slate-800"></div>
+          
+          <div class="pt-3 border-t border-slate-800 flex justify-between items-center text-base font-extrabold text-white">
+            <span>Total Mesa:</span>
+            <span id="grandTotal" class="text-amber-400 text-lg">$0</span>
+          </div>
+        </section>
+
+        <!-- COBRAR WHATSAPP -->
+        <button onclick="shareWhatsApp()" class="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold rounded-2xl shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2 text-sm transition-all active:scale-95">
+          <i class="fa-brands fa-whatsapp text-lg"></i>
+          <span>Enviar Resumen por WhatsApp</span>
+        </button>
+
+      </main>
+    </div>
+
+    <!-- MODAL DE ASIGNACIÓN -->
+    <div id="assignModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-end sm:items-center justify-center p-4">
+      <div class="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-3xl p-5 space-y-4 shadow-2xl">
+        <div class="flex justify-between items-center">
+          <div>
+            <h4 id="modalItemTitle" class="font-extrabold text-white text-base">Asignar Consumo</h4>
+            <p id="modalItemPrice" class="text-xs text-amber-400 font-bold">$0</p>
+          </div>
+          <button onclick="closeModal()" class="text-slate-400 hover:text-white p-1">
+            <i class="fa-solid fa-xmark text-lg"></i>
+          </button>
+        </div>
+
+        <p class="text-xs text-slate-400">Selecciona quiénes consumieron este ítem:</p>
+
+        <div id="modalPeopleList" class="space-y-2 max-h-48 overflow-y-auto pr-1"></div>
+
+        <div class="flex gap-2 pt-2">
+          <button onclick="selectAllModalPeople()" class="flex-1 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs">
+            Todos
+          </button>
+          <button onclick="saveAssignment()" class="flex-1 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold rounded-xl text-xs">
+            Guardar
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL PARA COMPARTIR LINK / QR -->
+    <div id="shareModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+      <div class="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-3xl p-6 text-center space-y-4 shadow-2xl">
+        <div class="flex justify-between items-center">
+          <h4 class="font-extrabold text-white text-base">Unirse a la Mesa</h4>
+          <button onclick="closeShareModal()" class="text-slate-400 hover:text-white p-1">
+            <i class="fa-solid fa-xmark text-lg"></i>
+          </button>
+        </div>
+
+        <p class="text-xs text-slate-300">Escanea el código QR desde la cámara de tu celular o copia el enlace:</p>
+
+        <div class="flex justify-center p-3 bg-white rounded-2xl w-fit mx-auto shadow-inner">
+          <div id="qrcode"></div>
+        </div>
+
+        <div class="space-y-2 pt-2">
+          <input type="text" id="shareUrlInput" readonly class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-center font-mono text-amber-400 select-all focus:outline-none">
+          <button onclick="copyMesaLink()" class="w-full py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-amber-500/10">
+            <i class="fa-solid fa-copy"></i> Copiar Enlace
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, onSnapshot, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    // Standard application setup
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'cuentas-bares-app';
+    const firebaseConfig = typeof __firebase_config !== 'undefined' 
+      ? JSON.parse(__firebase_config) 
+      : { apiKey: "demo", projectId: "demo-app" };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    let currentMesaId = null;
+    let unsubscribeDoc = null;
+    let qrCodeObj = null;
+
+    window.state = {
+      people: [],
+      items: [],
+      includeTip: true,
+      editingItemId: null,
+      bank: { raw: '', name: '', rut: '', bank: '', type: '', account: '' }
+    };
+
+    // Autenticación inicial obligatoria
+    async function initAuth() {
+      try {
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+          await signInWithCustomToken(auth, __initial_auth_token);
+        } else {
+          await signInAnonymously(auth);
+        }
+      } catch (err) {
+        console.error("Auth error:", err);
+      }
+    }
+
+    window.createNewMesa = async () => {
+      await initAuth();
+      const code = Math.random().toString(36).substring(2, 7).toUpperCase();
+      currentMesaId = code;
+      
+      const mesaDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'mesas', currentMesaId);
+      
+      const initialData = {
+        people: ['Yo'],
+        items: [],
+        includeTip: true,
+        bank: { raw: '', name: '', rut: '', bank: '', type: '', account: '' },
+        createdAt: Date.now()
+      };
+
+      await setDoc(mesaDocRef, initialData);
+      
+      // Actualizar la URL sin recargar
+      window.history.pushState({}, '', `?mesa=${currentMesaId}`);
+      subscribeToMesa(currentMesaId);
+      
+      document.getElementById('landingView').classList.add('hidden');
+      document.getElementById('mainView').classList.remove('hidden');
+    };
+
+    window.joinMesaByCode = async () => {
+      const codeInput = document.getElementById('joinMesaInput').value.trim().toUpperCase();
+      if (!codeInput) {
+        alert('Ingresa un código de mesa válido.');
+        return;
+      }
+      await initAuth();
+      currentMesaId = codeInput;
+      window.history.pushState({}, '', `?mesa=${currentMesaId}`);
+      subscribeToMesa(currentMesaId);
+
+      document.getElementById('landingView').classList.add('hidden');
+      document.getElementById('mainView').classList.remove('hidden');
+    };
+
+    function subscribeToMesa(mesaId) {
+      document.getElementById('mesaCodeDisplay').innerText = `Código: ${mesaId}`;
+      const mesaDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'mesas', mesaId);
+
+      if (unsubscribeDoc) unsubscribeDoc();
+
+      unsubscribeDoc = onSnapshot(mesaDocRef, (snapshot) => {
+        if (snapshot.exists()) {
+          const data = snapshot.data();
+          window.state.people = data.people || [];
+          window.state.items = data.items || [];
+          window.state.includeTip = data.includeTip !== undefined ? data.includeTip : true;
+          window.state.bank = data.bank || { raw: '', name: '', rut: '', bank: '', type: '', account: '' };
+
+          // Actualizar inputs bancarios localmente
+          document.getElementById('rawBankText').value = window.state.bank.raw || '';
+          document.getElementById('bankName').value = window.state.bank.name || '';
+          document.getElementById('bankRut').value = window.state.bank.rut || '';
+          document.getElementById('bankEntity').value = window.state.bank.bank || '';
+          document.getElementById('bankType').value = window.state.bank.type || '';
+          document.getElementById('bankAccount').value = window.state.bank.account || '';
+
+          document.getElementById('tipToggle').checked = window.state.includeTip;
+
+          window.render();
+        } else {
+          alert('La mesa ingresada no existe o fue eliminada.');
+          leaveMesa();
+        }
+      }, (error) => {
+        console.error("Error al sincronizar la mesa:", error);
+      });
+    }
+
+    async function syncMesaToRemote() {
+      if (!currentMesaId || !auth.currentUser) return;
+      const mesaDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'mesas', currentMesaId);
+      await updateDoc(mesaDocRef, {
+        people: window.state.people,
+        items: window.state.items,
+        includeTip: window.state.includeTip,
+        bank: window.state.bank
+      });
+    }
+
+    window.leaveMesa = () => {
+      if (unsubscribeDoc) unsubscribeDoc();
+      currentMesaId = null;
+      window.history.pushState({}, '', window.location.pathname);
+      document.getElementById('mainView').classList.add('hidden');
+      document.getElementById('landingView').classList.remove('hidden');
+    };
+
+    window.openShareModal = () => {
+      const fullUrl = window.location.href;
+      document.getElementById('shareUrlInput').value = fullUrl;
+      
+      const qrContainer = document.getElementById('qrcode');
+      qrContainer.innerHTML = '';
+      qrCodeObj = new QRCode(qrContainer, {
+        text: fullUrl,
+        width: 140,
+        height: 140,
+        colorDark : "#0f172a",
+        colorLight : "#ffffff"
+      });
+
+      document.getElementById('shareModal').classList.remove('hidden');
+    };
+
+    window.closeShareModal = () => {
+      document.getElementById('shareModal').classList.add('hidden');
+    };
+
+    window.copyMesaLink = () => {
+      const fullUrl = window.location.href;
+      const tempInput = document.createElement('input');
+      tempInput.value = fullUrl;
+      document.body.appendChild(tempInput);
+      tempInput.select();
+      document.execCommand('copy');
+      document.body.removeChild(tempInput);
+      alert('¡Enlace de la mesa copiado! Envíaselo a tus amigos para que entren.');
+    };
+
+    window.parseRawBankText = () => {
+      const rawText = document.getElementById('rawBankText').value;
+      if (!rawText.trim()) {
+        alert('Pega el texto de tus datos bancarios en la casilla primero.');
+        return;
+      }
+
+      let foundRut = '';
+      const rutMatch = rawText.match(/\b(\d{1,2}\.?\d{3}\.?\d{3}-[\dkK])\b/);
+      if (rutMatch) foundRut = rutMatch[1];
+
+      let foundBank = '';
+      const banks = ['BancoEstado', 'Estado', 'Falabella', 'Santander', 'Chile', 'BCI', 'Scotiabank', 'Itaú', 'BICE', 'Security', 'Consorcio', 'Tenpo', 'Mach', 'Mercado Pago'];
+      for (let b of banks) {
+        if (new RegExp(b, 'i').test(rawText)) {
+          foundBank = b.toLowerCase().includes('estado') ? 'BancoEstado' : b;
+          break;
+        }
+      }
+
+      let foundType = '';
+      const isCuentaRut = /rut|cuenta\s*rut/i.test(rawText);
+      if (isCuentaRut) foundType = 'CuentaRUT';
+      else if (/vista/i.test(rawText)) foundType = 'Cuenta Vista';
+      else if (/corriente/i.test(rawText)) foundType = 'Cuenta Corriente';
+      else if (/ahorro/i.test(rawText)) foundType = 'Cuenta de Ahorro';
+
+      let accountNum = '';
+      const explicitAcc = rawText.match(/(?:cuenta|cta|nº|n°|nro|num|numero)\s*:?\s*([\d\s\.-]{5,20})/i);
+      if (explicitAcc && explicitAcc[1]) {
+        const cleaned = explicitAcc[1].replace(/[^\d]/g, '');
+        if (cleaned.length >= 5) accountNum = cleaned;
+      }
+
+      if (!accountNum && isCuentaRut && foundRut) {
+        accountNum = foundRut.split('-')[0].replace(/\./g, '');
+      }
+
+      if (!accountNum) {
+        const cleanRutNum = foundRut ? foundRut.replace(/[^\d]/g, '') : '';
+        const allNumSequences = rawText.match(/\b\d[\d\s\.-]{5,18}\d\b/g) || [];
+        for (let seq of allNumSequences) {
+          const onlyDigits = seq.replace(/[^\d]/g, '');
+          if (onlyDigits.length >= 6 && (!cleanRutNum || !cleanRutNum.includes(onlyDigits))) {
+            accountNum = onlyDigits;
+            break;
+          }
+        }
+      }
+
+      let foundName = '';
+      const explicitName = rawText.match(/(?:nombre|titular)\s*:?\s*([A-Za-zÁÉÍÓÚáéíóúñÑ\s]{3,40})/i);
+      if (explicitName && explicitName[1]) {
+        foundName = explicitName[1].trim();
+      }
+
+      if (!foundName) {
+        const lines = rawText.split('\n');
+        for (let line of lines) {
+          const cleanLine = line.trim();
+          if (cleanLine && !/\d/.test(cleanLine) && !/banco|cuenta|rut|tipo|corriente|vista|rut|ahorro/i.test(cleanLine)) {
+            if (cleanLine.length >= 4 && cleanLine.length <= 40) {
+              foundName = cleanLine;
+              break;
+            }
+          }
+        }
+      }
+
+      window.state.bank = {
+        raw: rawText,
+        name: foundName || document.getElementById('bankName').value,
+        rut: foundRut || document.getElementById('bankRut').value,
+        bank: foundBank || document.getElementById('bankEntity').value,
+        type: foundType || document.getElementById('bankType').value,
+        account: accountNum || document.getElementById('bankAccount').value
+      };
+
+      syncMesaToRemote();
+    };
+
+    window.saveBankDataRemote = () => {
+      window.state.bank = {
+        raw: document.getElementById('rawBankText').value,
+        name: document.getElementById('bankName').value,
+        rut: document.getElementById('bankRut').value,
+        bank: document.getElementById('bankEntity').value,
+        type: document.getElementById('bankType').value,
+        account: document.getElementById('bankAccount').value
+      };
+      syncMesaToRemote();
+    };
+
+    window.toggleTipRemote = () => {
+      window.state.includeTip = document.getElementById('tipToggle').checked;
+      syncMesaToRemote();
+    };
+
+    window.addPerson = () => {
+      const name = prompt('Ingresa el nombre del nuevo integrante:');
+      if (name && name.trim()) {
+        if (!window.state.people.includes(name.trim())) {
+          window.state.people.push(name.trim());
+          syncMesaToRemote();
+        }
+      }
+    };
+
+    window.removePerson = (index) => {
+      const pName = window.state.people[index];
+      window.state.people.splice(index, 1);
+      window.state.items.forEach(item => {
+        item.assignedTo = item.assignedTo.filter(name => name !== pName);
+      });
+      syncMesaToRemote();
+    };
+
+    window.addManualItem = () => {
+      const nameInput = document.getElementById('itemName');
+      const priceInput = document.getElementById('itemPrice');
+      const name = nameInput.value.trim() || 'Consumo';
+      const price = parseFloat(priceInput.value);
+
+      if (!price || price <= 0) {
+        alert('Ingresa un monto válido.');
+        return;
+      }
+
+      window.state.items.push({
+        id: Date.now(),
+        name: name,
+        price: price,
+        assignedTo: []
+      });
+
+      nameInput.value = '';
+      priceInput.value = '';
+      syncMesaToRemote();
+    };
+
+    window.deleteItem = (id) => {
+      window.state.items = window.state.items.filter(i => i.id !== id);
+      syncMesaToRemote();
+    };
+
+    window.openAssignModal = (itemId) => {
+      if (window.state.people.length === 0) {
+        alert('Primero agrega integrantes a la mesa.');
+        return;
+      }
+      window.state.editingItemId = itemId;
+      const item = window.state.items.find(i => i.id === itemId);
+      if (!item) return;
+
+      document.getElementById('modalItemTitle').innerText = item.name;
+      document.getElementById('modalItemPrice').innerText = window.formatCLP(item.price);
+
+      const list = document.getElementById('modalPeopleList');
+      list.innerHTML = '';
+
+      window.state.people.forEach(p => {
+        const isChecked = item.assignedTo.includes(p);
+        const div = document.createElement('div');
+        div.className = 'flex items-center justify-between p-2 rounded-xl bg-slate-800/50 hover:bg-slate-800 cursor-pointer';
+        div.onclick = () => {
+          const cb = div.querySelector('input');
+          cb.checked = !cb.checked;
+        };
+        div.innerHTML = `
+          <span class="text-sm text-slate-200 font-medium">${p}</span>
+          <input type="checkbox" value="${p}" ${isChecked ? 'checked' : ''} onclick="event.stopPropagation()" class="w-4 h-4 accent-amber-500 rounded">
+        `;
+        list.appendChild(div);
+      });
+
+      document.getElementById('assignModal').classList.remove('hidden');
+    };
+
+    window.closeModal = () => {
+      document.getElementById('assignModal').classList.add('hidden');
+      window.state.editingItemId = null;
+    };
+
+    window.selectAllModalPeople = () => {
+      document.querySelectorAll('#modalPeopleList input[type="checkbox"]').forEach(cb => cb.checked = true);
+    };
+
+    window.saveAssignment = () => {
+      if (!window.state.editingItemId) return;
+      const item = window.state.items.find(i => i.id === window.state.editingItemId);
+      if (!item) return;
+
+      const selected = [];
+      document.querySelectorAll('#modalPeopleList input[type="checkbox"]').forEach(cb => {
+        if (cb.checked) selected.push(cb.value);
+      });
+
+      item.assignedTo = selected;
+      window.closeModal();
+      syncMesaToRemote();
+    };
+
+    window.simulateReceipt = () => {
+      if (window.state.people.length === 0) {
+        window.state.people = ['Yo', 'Amigo 1', 'Amigo 2'];
+      }
+      window.state.items = [
+        { id: 1, name: '2x Cerveza Austral', price: 9000, assignedTo: [] },
+        { id: 2, name: 'Chorrillana Bar', price: 15500, assignedTo: [...window.state.people] },
+        { id: 3, name: 'Pisco Sour Alto', price: 4500, assignedTo: [] }
+      ];
+      syncMesaToRemote();
+    };
+
+    window.handleImageUpload = () => {
+      alert('Foto procesada. Cargando demostración de la boleta...');
+      window.simulateReceipt();
+    };
+
+    window.formatCLP = (val) => {
+      return '$' + Math.round(val).toLocaleString('es-CL');
+    };
+
+    window.render = () => {
+      // Integrantes
+      const peopleList = document.getElementById('peopleList');
+      peopleList.innerHTML = '';
+      if (window.state.people.length === 0) {
+        peopleList.innerHTML = '<span class="text-xs text-slate-500 italic">Sin integrantes</span>';
+      } else {
+        window.state.people.forEach((p, idx) => {
+          const badge = document.createElement('span');
+          badge.className = 'inline-flex items-center gap-1.5 px-3 py-1 bg-slate-800 border border-slate-700 text-slate-200 font-semibold text-xs rounded-full';
+          badge.innerHTML = `
+            ${p}
+            <i class="fa-solid fa-xmark text-slate-400 hover:text-rose-400 cursor-pointer" onclick="removePerson(${idx})"></i>
+          `;
+          peopleList.appendChild(badge);
+        });
+      }
+
+      // Ítems
+      const itemsContainer = document.getElementById('itemsContainer');
+      itemsContainer.innerHTML = '';
+      document.getElementById('itemCountBadge').innerText = `${window.state.items.length} ítems`;
+
+      window.state.items.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'glass-card p-3 rounded-2xl flex items-center justify-between gap-3';
+        
+        const assignedText = item.assignedTo.length === 0 
+          ? '<span class="text-rose-400 font-bold">Sin asignar</span>'
+          : (window.state.people.length > 0 && item.assignedTo.length === window.state.people.length)
+            ? '<span class="text-amber-400 font-semibold">Todos</span>' 
+            : `<span class="text-slate-300">${item.assignedTo.join(', ')}</span>`;
+
+        div.innerHTML = `
+          <div class="flex-1 min-w-0 cursor-pointer" onclick="openAssignModal(${item.id})">
+            <p class="font-bold text-white text-sm truncate">${item.name}</p>
+            <p class="text-xs text-slate-400 truncate">Para: ${assignedText}</p>
+          </div>
+          <div class="text-right">
+            <p class="font-extrabold text-amber-400 text-sm">${window.formatCLP(item.price)}</p>
+            <button onclick="openAssignModal(${item.id})" class="text-[10px] bg-slate-800 text-slate-300 hover:text-white px-2 py-0.5 rounded-md mt-1 border border-slate-700">
+              <i class="fa-solid fa-user-plus"></i> Asignar
+            </button>
+          </div>
+          <button onclick="deleteItem(${item.id})" class="text-slate-500 hover:text-rose-400 p-1">
+            <i class="fa-solid fa-trash-can text-sm"></i>
+          </button>
+        `;
+        itemsContainer.appendChild(div);
+      });
+
+      // Cálculos totales
+      const totals = {};
+      window.state.people.forEach(p => totals[p] = 0);
+
+      window.state.items.forEach(item => {
+        if (item.assignedTo.length > 0) {
+          const splitPrice = item.price / item.assignedTo.length;
+          item.assignedTo.forEach(p => {
+            if (totals[p] !== undefined) totals[p] += splitPrice;
+          });
+        }
+      });
+
+      const tipMultiplier = window.state.includeTip ? 1.10 : 1.0;
+      let grandTotalFinal = 0;
+
+      const summaryContainer = document.getElementById('summaryContainer');
+      summaryContainer.innerHTML = '';
+
+      if (window.state.people.length === 0) {
+        summaryContainer.innerHTML = '<p class="text-xs text-slate-500 italic">Agrega integrantes para ver la distribución.</p>';
+      } else {
+        window.state.people.forEach(p => {
+          const userTotal = totals[p] * tipMultiplier;
+          grandTotalFinal += userTotal;
+          const row = document.createElement('div');
+          row.className = 'pt-2 flex justify-between items-center text-sm';
+          row.innerHTML = `
+            <span class="text-slate-300 font-medium">${p}</span>
+            <span class="font-bold text-white">${window.formatCLP(userTotal)}</span>
+          `;
+          summaryContainer.appendChild(row);
+        });
+      }
+
+      document.getElementById('grandTotal').innerText = window.formatCLP(grandTotalFinal);
+    };
+
+    window.shareWhatsApp = () => {
+      const tipMultiplier = window.state.includeTip ? 1.10 : 1.0;
+      const totals = {};
+      window.state.people.forEach(p => totals[p] = 0);
+
+      window.state.items.forEach(item => {
+        if (item.assignedTo.length > 0) {
+          const splitPrice = item.price / item.assignedTo.length;
+          item.assignedTo.forEach(p => {
+            if (totals[p] !== undefined) totals[p] += splitPrice;
+          });
+        }
+      });
+
+      let msg = `🍻 *CUENTAS BARES* 🍻\n`;
+      msg += `📍 *Link de la Mesa:* ${window.location.href}\n\n`;
+      
+      window.state.people.forEach(p => {
+        const total = totals[p] * tipMultiplier;
+        msg += `• *${p}:* ${window.formatCLP(total)}\n`;
+      });
+
+      if (window.state.includeTip) msg += `\n_(Incluye 10% de propina sugerida)_\n`;
+
+      const bank = window.state.bank;
+      if (bank.name || bank.bank || bank.account) {
+        msg += `\n💳 *DATOS DE TRANSFERENCIA:*`;
+        if (bank.name) msg += `\n• Nombre: ${bank.name}`;
+        if (bank.rut) msg += `\n• RUT: ${bank.rut}`;
+        if (bank.bank) msg += `\n• Banco: ${bank.bank}`;
+        if (bank.type) msg += `\n• Tipo: ${bank.type}`;
+        if (bank.account) msg += `\n• Nº Cuenta: ${bank.account}`;
+      } else if (bank.raw) {
+        msg += `\n💳 *DATOS DE TRANSFERENCIA:*\n${bank.raw}`;
+      }
+
+      const encodedMsg = encodeURIComponent(msg);
+      window.open(`https://api.whatsapp.com/send?text=${encodedMsg}`, '_blank');
+    };
+
+    // Auto-unirse si viene parámetro URL ?mesa=CODIGO
+    window.addEventListener('DOMContentLoaded', async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const mesaParam = urlParams.get('mesa');
+
+      if (mesaParam) {
+        await initAuth();
+        currentMesaId = mesaParam.toUpperCase();
+        subscribeToMesa(currentMesaId);
+        document.getElementById('landingView').classList.add('hidden');
+        document.getElementById('mainView').classList.remove('hidden');
+      }
+    });
+  </script>
+</body>
+</html>
